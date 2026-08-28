@@ -1,0 +1,11 @@
+metric,value
+events with intraday data,264.0
+avg gap %,38.237494595151006
+avg max gain from open %,26.74601559276868
+median max gain from open %,12.47841824560625
+avg max drawdown from open %,15.317278420710768
+median drawdown before peak %,5.660683444573432
+median risk/reward,2.456964599094749
+median minutes to peak,32.5
+avg close vs open %,-2.1113354786095906
+% closing green vs open,39.015151515151516

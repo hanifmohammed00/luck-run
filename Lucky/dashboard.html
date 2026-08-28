@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lucky</title>
+<style>
+  :root{
+    /* warmed from neutral gray toward Usagi's cream so he isn't sitting on
+       a cold background that clashes with him - up/down/warn stay untouched,
+       those are semantic (green=gain, red=loss) and must not shift */
+    --ink:#18140f; --ink-2:#5c5346; --ink-3:#8f8470;
+    --line:#e9e0d0; --line-2:#d8cbb2; --bg:#fffdf8; --bg-2:#faf4e8; --bg-3:#f3ead7;
+    --up:#0a7d32; --up-soft:#e9f6ee; --down:#c0392b; --down-soft:#fbebe9;
+    --warn:#8a6d1f; --warn-soft:#fbf3de;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg-2);color:var(--ink);
+    font:400 15px/1.55 -apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--ink-3)}
+  .wrap{max-width:1180px;margin:0 auto;padding:52px 20px 64px}
+
+  /* ---- top status bar: the #1 most prominent thing on the page ---- */
+  .statusbar{
+    background:var(--bg);border:1px solid var(--line);border-radius:8px;
+    padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;
+    justify-content:space-between;flex-wrap:wrap;gap:14px;
+  }
+  .statusbar .left{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  h1{display:flex;align-items:center;gap:9px;font-size:21px;font-weight:800;
+    margin:0;letter-spacing:-.4px}
+  .logo-mark{width:26px;height:26px;border-radius:7px;background:var(--ink);color:var(--bg);
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:800;flex-shrink:0}
+  .runstate{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600}
+  .statusdot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .statusdot.on{background:var(--up);box-shadow:0 0 0 3px var(--up-soft)}
+  .statusdot.idle{background:#c9a300;box-shadow:0 0 0 3px var(--warn-soft)}
+  .statusdot.off{background:var(--down);box-shadow:0 0 0 3px var(--down-soft)}
+  .statusbar .right{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .badge{font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;
+    padding:4px 10px;border-radius:20px;border:1px solid var(--line-2);color:var(--ink-2)}
+  .badge.on{background:var(--up-soft);color:var(--up);border-color:transparent}
+  .badge.off{background:var(--bg-3);color:var(--ink-3)}
+  .badge.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+  .metarow{display:flex;flex-wrap:wrap;gap:10px 32px;border-top:1px solid var(--line);margin-top:16px;padding-top:16px}
+  .meta{flex:1 1 170px;padding:2px 0}
+  .meta .k{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+  .meta .v{font-size:12px;margin-top:2px;font-weight:400;color:var(--ink-2)}
+
+  nav{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:20px}
+  nav button{
+    background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;
+    padding:9px 15px;font:inherit;font-size:14px;color:var(--ink-3);cursor:pointer;
+  }
+  nav button:hover{color:var(--ink)}
+  nav button.sel{color:var(--ink);border-bottom-color:var(--ink)}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;
+    background:var(--line);border:1px solid var(--line);margin-bottom:20px;border-radius:8px;overflow:hidden}
+  .card{background:var(--bg);padding:13px 15px}
+  .card .k{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+  .card .v{font-size:21px;margin-top:4px}
+  .card .s{font-size:11.5px;color:var(--ink-3);margin-top:2px}
+
+  .panel{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:16px}
+  h2{font-size:12.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--ink-2);margin:0 0 12px}
+  .panel h2{margin-top:0}
+  section > h2{margin:26px 0 10px}
+
+  table{width:100%;border-collapse:collapse;font-size:14px;background:var(--bg);
+    border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  th{text-align:left;font-weight:500;font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--ink-3);padding:12px 12px 8px;border-bottom:1px solid var(--line)}
+  td{padding:11px 12px;border-bottom:1px solid var(--line)}
+  tr:last-child td{border-bottom:0}
+  th.r,td.r{text-align:right}
+  .center-table th,.center-table td{text-align:center}
+  .tick{font-weight:600;letter-spacing:.02em}
+
+  button.act{
+    font:inherit;font-size:12px;padding:4px 11px;margin-left:6px;cursor:pointer;
+    background:var(--bg);border:1px solid var(--line-2);border-radius:2px;color:var(--ink);
+  }
+  button.act:hover{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  button.act.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+  .seg{display:flex;gap:0;margin-bottom:16px}
+  .segb{font:inherit;font-size:12.5px;padding:6px 13px;cursor:pointer;color:var(--ink-3);
+    background:var(--bg);border:1px solid var(--line-2);border-right-width:0}
+  .segb:last-child{border-right-width:1px}
+  .segb:hover{color:var(--ink)}
+  .segb.sel{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .empty{color:var(--ink-3);font-size:14px;padding:22px 0;text-align:center}
+  .note{font-size:11.5px;color:var(--ink-3);margin-top:14px;line-height:1.6}
+  .scrollbox{max-height:440px;overflow-y:auto;border:1px solid var(--line);
+    border-radius:0 0 6px 6px;background:var(--bg)}
+  /* body table sits inside .scrollbox, which already supplies the card look -
+     reset the base table's own border/radius/bg here so it isn't doubled */
+  .scrollbox table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:100%;
+    border:0;border-radius:0;background:transparent}
+  .tablehead{table-layout:fixed;width:100%;border-collapse:collapse;
+    border-radius:6px 6px 0 0;border-bottom:0}
+  .tablehead th{padding-right:15px}   /* compensates for the scrollbar width in the box below */
+  .warn{color:var(--warn)}
+  svg .ln{fill:none;stroke:var(--ink);stroke-width:1.5}
+  svg .zero{stroke:var(--line-2);stroke-width:1;stroke-dasharray:3 3}
+  .hidden{display:none}
+
+  /* ---- position cards: the #1 content section ---- */
+  .poscard{border:1px solid var(--line);border-radius:8px;margin-bottom:8px;overflow:hidden;background:var(--bg)}
+  .poscard.real{border-color:var(--down);box-shadow:0 0 0 1px var(--down)}
+  .poscard-head{display:flex;align-items:center;gap:16px;padding:14px 16px;cursor:pointer;flex-wrap:wrap}
+  .poscard-head:hover{background:var(--bg-3)}
+  .pc-sym{font-size:16px;font-weight:700;min-width:56px}
+  .pc-side{font-size:10.5px;letter-spacing:.06em;font-weight:700;padding:3px 8px;border-radius:3px}
+  .pc-side.long{background:var(--up-soft);color:var(--up)}
+  .pc-side.short{background:var(--down-soft);color:var(--down)}
+  .pc-real{font-size:10px;letter-spacing:.06em;font-weight:700;padding:3px 7px;border-radius:3px;
+    background:var(--down);color:#fff}
+  .pc-prices{font-size:13.5px;color:var(--ink-2);white-space:nowrap}
+  .pc-fill{flex:1}
+  .pc-pnlblock{text-align:right;min-width:110px}
+  .pc-pnl{font-size:16px;font-weight:700}
+  .pc-pnlpct{font-size:12px}
+  .pc-held{font-size:12.5px;color:var(--ink-3);min-width:52px;text-align:right}
+  .pc-chevron{color:var(--ink-3);font-size:11px;width:14px;text-align:center;transition:transform .15s}
+  .poscard.expanded .pc-chevron{transform:rotate(180deg)}
+  .poscard-detail{border-top:1px solid var(--line);padding:16px;background:var(--bg-2);display:none}
+  .poscard.expanded .poscard-detail{display:block}
+  .detailgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px 24px}
+  .dfield .k{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-bottom:3px}
+  .dfield .v{font-size:14px}
+  .whytext{grid-column:1/-1;font-size:13.5px;color:var(--ink-2);line-height:1.6;
+    background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+  .pc-actions{margin-top:14px}
+
+  /* ---- activity feed ---- */
+  .activity-row{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+  .activity-row:last-child{border-bottom:0}
+  .activity-time{font-family:var(--mono);color:var(--ink-3);min-width:64px}
+  .activity-dot{width:6px;height:6px;border-radius:50%;margin-top:6px;flex-shrink:0}
+  .activity-dot.entry{background:var(--up)}
+  .activity-dot.exit{background:var(--ink-3)}
+
+  /* ---- strategy health / progress ---- */
+  .healthrow{display:flex;align-items:center;justify-content:space-between;padding:7px 0;
+    border-bottom:1px solid var(--line);font-size:13.5px}
+  .healthrow:last-child{border-bottom:0}
+  .progress{height:8px;border-radius:5px;background:var(--bg-3);overflow:hidden;margin:10px 0 4px}
+  .progress-fill{height:100%;background:var(--ink);border-radius:5px}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:760px){.split{grid-template-columns:1fr}}
+
+  /* ---- system health grid ---- */
+  .healthgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+  .healthchip{border:1px solid var(--line);border-radius:6px;padding:10px 12px;display:flex;
+    align-items:center;gap:8px;font-size:13px}
+  .hc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .hc-dot.on{background:var(--up)} .hc-dot.off{background:var(--ink-3)} .hc-dot.na{background:var(--warn)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="statusbar">
+    <div class="left">
+      <h1><span class="logo-mark">$</span>Lucky</h1>
+      <span class="runstate" id="runstate"><span class="statusdot" id="statusdot"></span><span id="statustext">connecting</span></span>
+    </div>
+    <div class="right" id="badges"></div>
+    <div class="metarow" id="metarow"></div>
+  </div>
+
+  <nav>
+    <button class="sel" data-tab="live">Live</button>
+    <button data-tab="pnl">P&amp;L</button>
+  </nav>
+
+  <section id="tab-live">
+    <div class="cards" id="live-cards"></div>
+
+    <h2>Open positions</h2>
+    <div id="positions"></div>
+
+    <h2>Algorithm activity</h2>
+    <div class="panel"><div id="activity"></div></div>
+
+    <div class="split">
+      <div class="panel">
+        <h2>Equity curve</h2>
+        <div class="seg" id="eq-range"></div>
+        <div id="live-curve"></div>
+      </div>
+      <div class="panel">
+        <h2>Strategy health &mdash; long</h2>
+        <div id="strategy-health"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>System health</h2>
+      <div class="healthgrid" id="system-health"></div>
+    </div>
+
+    <h2>Closed today</h2>
+    <div id="closed"></div>
+
+    <h2>Watchlist today</h2>
+    <div id="candidates"></div>
+  </section>
+
+  <section id="tab-pnl" class="hidden">
+    <div class="seg">
+      <button class="segb sel" data-view="live">Live fills only</button>
+      <button class="segb" data-view="all">Include reconstructions</button>
+    </div>
+    <div class="cards" id="pnl-cards"></div>
+    <h2>Kill switch <span style="text-transform:none;font-weight:400"> &mdash; long strategy</span></h2>
+    <div id="killswitch"></div>
+    <h2>Equity</h2>
+    <div id="curve"></div>
+    <h2>By day</h2>
+    <div id="bydays" class="center-table"></div>
+    <h2>All trades</h2>
+    <div class="tablehead center-table" id="trades-head"></div>
+    <div id="trades" class="scrollbox center-table"></div>
+  </section>
+
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+// default to real fills: the forward test is the thing being measured
+let view = "live";
+let eqRange = "today";
+const expanded = new Set();   // which position cards are open - survives re-render every 5s
+const money = n => (n<0?"-":"")+"$"+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct = n => (n>0?"+":"")+n.toFixed(2)+"%";
+const cls = n => n>0?"up":(n<0?"down":"flat");
+const px = n => n==null?"&mdash;":n.toFixed(4);
+const sign = (v,f) => v==null ? '<span class="flat">&mdash;</span>'
+                              : `<span class="num ${cls(v)}">${f(v)}</span>`;
+const held = m => m==null ? "&mdash;" : (m<60 ? Math.round(m)+"m" : (m/60).toFixed(1)+"h");
+
+function card(k,v,s){ return `<div class="card"><div class="k">${k}</div>
+  <div class="v num">${v}</div>${s?`<div class="s">${s}</div>`:""}</div>`; }
+
+function table(cols, rows){
+  if(!rows.length) return '<div class="empty">Nothing yet.</div>';
+  const head = cols.map(c=>`<th class="${c.r?"r":""}">${c.h}</th>`).join("");
+  const body = rows.map(r=>"<tr>"+cols.map(c=>`<td class="${c.r?"r":""}">${c.f(r)}</td>`).join("")+"</tr>").join("");
+  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+// Header rendered as its own table OUTSIDE the scroll box, body as a
+// separate table inside it - a real fixed header, not just sticky-within-
+// the-box. Needs matching explicit column widths (cols[].w) since two
+// independent <table>s won't auto-align columns from content alone.
+function tableSplit(cols, rows){
+  const colgroup = `<colgroup>${cols.map(c=>`<col style="width:${c.w}">`).join("")}</colgroup>`;
+  const headHtml = `<table class="tablehead">${colgroup}<thead><tr>${
+    cols.map(c=>`<th class="${c.r?"r":""}">${c.h}</th>`).join("")}</tr></thead></table>`;
+  const bodyHtml = !rows.length ? '<div class="empty">Nothing yet.</div>' :
+    `<table>${colgroup}<tbody>${rows.map(r=>"<tr>"+
+      cols.map(c=>`<td class="${c.r?"r":""}">${c.f(r)}</td>`).join("")+"</tr>").join("")}</tbody></table>`;
+  return {headHtml, bodyHtml};
+}
+
+function curveSvg(points, moneyFmt){
+  if(points.length<2) return null;
+  const W=1080,H=190,P=26;
+  const eq=points.map(p=>p.y), lo=Math.min(...eq), hi=Math.max(...eq);
+  const span=(hi-lo)||1;
+  const x=i=>P+i*(W-2*P)/(points.length-1);
+  const y=v=>H-P-((v-lo)/span)*(H-2*P);
+  const pts=points.map((p,i)=>`${x(i).toFixed(1)},${y(p.y).toFixed(1)}`).join(" ");
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="190" role="img">
+    <polyline class="ln" points="${pts}"/>
+    <text x="${P}" y="16" font-size="11" fill="#8a8a8a">${moneyFmt(hi)}</text>
+    <text x="${P}" y="${H-6}" font-size="11" fill="#8a8a8a">${moneyFmt(lo)}</text>
+  </svg>`;
+}
+
+function curve(hist){
+  const svg = curveSvg(hist.map(h=>({y:h.equity})), money);
+  return svg || '<div class="empty">Needs two days of closed trades.</div>';
+}
+
+async function intent(ticker, action){
+  await fetch("/api/intent",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ticker,action})});
+  load();
+}
+
+function toggleExpand(key){
+  expanded.has(key) ? expanded.delete(key) : expanded.add(key);
+  load();
+}
+
+function whyEntered(p){
+  const bits = [];
+  if (p.gap_pct!=null) bits.push(`gapped up ${p.gap_pct.toFixed(1)}% at the open`);
+  if (p.signal_multiple!=null) bits.push(`a ${p.signal_multiple.toFixed(1)}&times; volume spike at ${p.signal_time||"?"}`);
+  bits.push(`price cleared +5% above the signal candle and reclaimed VWAP`);
+  return bits.length ? `Entered because the stock ${bits.join(", ")}.` : "Entry conditions unavailable.";
+}
+
+function positionCard(p, side){
+  const key = side+":"+p.ticker;
+  const isOpen = expanded.has(key);
+  const last = p.last!=null ? p.last : p.entry_price;
+  const pnlPct = p.unrealised_pct, pnlUsd = p.unrealised_usd;
+  const entry = p.entry!=null ? p.entry : p.entry_price;
+  const real = !!p.is_real;
+  const slipPct = (p.trigger && p.entry) ? (p.entry-p.trigger)/p.trigger*100 : null;
+  return `<div class="poscard ${isOpen?"expanded":""} ${real?"real":""}">
+    <div class="poscard-head" onclick="toggleExpand('${key}')">
+      <span class="pc-sym">${p.ticker}</span>
+      <span class="pc-side ${side}">${side.toUpperCase()}</span>
+      ${real?'<span class="pc-real">REAL</span>':''}
+      <span class="pc-prices"><span class="num">${px(entry)}</span> &rarr; <span class="num">${px(last)}</span></span>
+      <span class="pc-fill"></span>
+      <span class="pc-held">${held(p.held_min)}</span>
+      <span class="pc-pnlblock">
+        <div class="pc-pnl ${cls(pnlUsd)}">${pnlUsd==null?'&mdash;':money(pnlUsd)}</div>
+        <div class="pc-pnlpct ${cls(pnlPct)}">${pnlPct==null?'':pct(pnlPct)}</div>
+      </span>
+      <span class="pc-chevron">&#9660;</span>
+    </div>
+    <div class="poscard-detail">
+      <div class="detailgrid">
+        <div class="whytext">${side==="short" ? `Shorted today's top gainer.` : whyEntered(p)}</div>
+        <div class="dfield"><div class="k">Entry time</div><div class="v">${p.entry_time||p.started_at||"&mdash;"}</div></div>
+        <div class="dfield"><div class="k">Signal</div><div class="v">${p.signal_time?`${p.signal_time} &middot; ${p.signal_multiple?p.signal_multiple.toFixed(1)+'&times;':'&mdash;'}`:'&mdash;'}</div></div>
+        <div class="dfield"><div class="k">Expected vs actual fill</div>
+          <div class="v">${p.trigger?px(p.trigger)+' &rarr; '+px(entry):px(entry)}
+            ${slipPct!=null?`<span class="${cls(-Math.abs(slipPct))}"> (${slipPct>=0?'+':''}${slipPct.toFixed(2)}%)</span>`:''}</div></div>
+        <div class="dfield"><div class="k">Target / stop</div><div class="v num">${px(p.target)} / ${px(p.stop)}</div></div>
+        <div class="dfield"><div class="k">Cover by</div><div class="v">${p.cover_by||"&mdash;"}</div></div>
+        <div class="dfield"><div class="k">Position size</div><div class="v">${p.position_size?money(p.position_size):(real?'unknown':money(1300)+' (paper)')}</div></div>
+      </div>
+      ${side==="long" ? `<div class="pc-actions">
+        <button class="act ${p.intent==="close"?"on":""}" onclick="event.stopPropagation();intent('${p.ticker}','close')">Close</button>
+        <button class="act ${p.intent==="ride"?"on":""}" onclick="event.stopPropagation();intent('${p.ticker}','ride')">Ride</button>
+      </div>` : `<div class="pc-actions">
+        <button class="act ${p.intent==="close"?"on":""}" onclick="event.stopPropagation();intent('SHORT:${p.ticker}','close')">Close</button>
+      </div>`}
+    </div>
+  </div>`;
+}
+
+function render(d){
+  const L=d.live;
+  const openN = (L.positions||[]).length + (d.eod_short?1:0);
+  const running = L.running;
+  const waiting = running && L.phase && L.phase!=="live";
+
+  // ---- status bar: the single most prominent thing on the page ----
+  let dotClass, text;
+  if (!running) { dotClass="off"; text = L.session ? `STOPPED &middot; last seen ${L.updated||"?"}` : "STOPPED"; }
+  else if (waiting) { dotClass="idle"; text = `RUNNING &mdash; ${L.phase}`; }
+  else if (openN>0) { dotClass="on"; text = "RUNNING &mdash; LIVE"; }
+  else { dotClass="idle"; text = "RUNNING &mdash; NO POSITIONS"; }
+  $("#statusdot").className = "statusdot "+dotClass;
+  $("#statustext").innerHTML = text;
+
+  const marketOpen = d.market_status==="OPEN";
+  $("#badges").innerHTML =
+    `<span class="badge warn">DRY RUN</span>` +
+    `<span class="badge ${marketOpen?'on':'off'}">MARKET ${d.market_status||'?'}</span>`;
+
+  $("#metarow").innerHTML = [
+    ["Last heartbeat", `<span class="num">${L.updated||"&mdash;"}</span>`],
+    ["Polls today", `<span class="num">${L.polls??"&mdash;"}</span>`],
+    ["Strategy", "LONG (+ EOD short)"],
+    ["Execution", "Not connected &mdash; dry run, no orders sent"],
+    ["Data feed", running?"OK":"stale / not running"],
+    ["Entry cutoff", `<span class="num">${L.cutoff||"&mdash;"}</span>`],
+  ].map(([k,v])=>`<div class="meta"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+
+  const openPnl = (L.positions||[]).reduce((a,p)=>a+(p.unrealised_usd||0),0)
+                + (d.eod_short?.unrealised_usd||0);
+  const closedPnl = (L.closed||[]).reduce((a,c)=>a+(c.pnl||0),0);
+  const fillsUsed = (L.positions||[]).length + (L.closed||[]).length;
+  $("#live-cards").innerHTML =
+    card("Fills", fillsUsed + " / " + (L.max_fills??"-"), "used today") +
+    card("Open", openN, "still running") +
+    card("Unrealised", `<span class="${cls(openPnl)}">${money(openPnl)}</span>`, "marks, gross of cost") +
+    card("Realised today", `<span class="${cls(closedPnl)}">${money(closedPnl)}</span>`, (L.closed||[]).length+" closed") +
+    card("Watching", (L.candidates||[]).length, "gap-ups scanned 09:31") +
+    card("Signalled", (L.candidates||[]).filter(c=>c.signalled).length, "spike + trigger fired");
+
+  // ---- OPEN POSITIONS: #1 content section ----
+  const posCards = (L.positions||[]).map(p=>positionCard(p,"long")).join("")
+                  + (d.eod_short ? positionCard(d.eod_short,"short") : "");
+  $("#positions").innerHTML = posCards || '<div class="empty">No open positions right now.</div>';
+
+  // ---- activity feed ----
+  const act = d.activity||[];
+  $("#activity").innerHTML = act.length ? act.map(e=>
+    `<div class="activity-row"><span class="activity-time">${e.time}</span>
+      <span class="activity-dot ${e.kind}"></span><span>${e.text}</span></div>`).join("")
+    : '<div class="empty">Nothing yet today.</div>';
+
+  // ---- equity curve (Today / 1W / 1M / All) ----
+  if (!$("#eq-range").dataset.wired) {
+    $("#eq-range").innerHTML = ["today","1w","1m","all"].map(r=>
+      `<button class="segb ${r==='today'?'sel':''}" data-range="${r}">${r==='today'?'Today':r==='1w'?'1W':r==='1m'?'1M':'All'}</button>`).join("");
+    $("#eq-range").dataset.wired = "1";
+    $("#eq-range").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+      $("#eq-range").querySelectorAll("button").forEach(x=>x.classList.toggle("sel",x===b));
+      eqRange = b.dataset.range; render(window.__lastState);
+    });
+  }
+  let curveHtml;
+  if (eqRange==="today") {
+    const pts = (d.intraday_equity||[]).map(r=>({y:r.equity}));
+    curveHtml = curveSvg(pts, money) ||
+      '<div class="empty">No polls yet today &mdash; populates once the runner is live.</div>';
+  } else {
+    const hist = d.views.live.history;
+    const days = eqRange==="1w"?7:eqRange==="1m"?30:hist.length;
+    curveHtml = curve(hist.slice(-days));
+  }
+  $("#live-curve").innerHTML = curveHtml;
+
+  // ---- strategy health (kill switch, condensed) ----
+  const K = d.kill_switch, LS = d.views.live.stats;
+  const kColor = {KILL:"down", CONFIRM:"up", CONTINUE:"flat", TOO_EARLY:"flat"}[K.verdict];
+  const kLabel = {KILL:"KILLED", CONFIRM:"CONFIRMED", CONTINUE:"CONTINUE",
+                  TOO_EARLY:"NORMAL &mdash; too early to call"}[K.verdict];
+  const kDot = K.verdict==="KILL" ? "off" : (K.verdict==="CONFIRM" ? "on" : "idle");
+  const pctFilled = Math.min(100, (K.n/K.n_min)*100);
+  $("#strategy-health").innerHTML = `
+    <div class="healthrow"><span>Status</span><span class="num ${kColor}"><span class="statusdot ${kDot}" style="margin-right:6px"></span>${kLabel}</span></div>
+    <div class="healthrow"><span>Win rate</span><span class="num">${LS.win_rate==null?'&mdash;':LS.win_rate.toFixed(0)+'%'}</span></div>
+    <div class="healthrow"><span>Expected (backtest)</span><span class="num flat">${LS.backtest_target_rate}%</span></div>
+    <div class="healthrow"><span>Avg / trade</span><span class="num ${cls(LS.avg_pct)}">${LS.avg_pct==null?'&mdash;':pct(LS.avg_pct)}</span></div>
+    <div class="healthrow"><span>Kill switch</span><span class="num">${K.verdict==="KILL"?"TRIPPED":"ARMED"}</span></div>
+    <div class="progress"><div class="progress-fill" style="width:${pctFilled}%"></div></div>
+    <div class="note" style="margin-top:2px">${K.n} / ${K.n_min} required live fills &middot; running avg ${K.avg==null?'&mdash;':pct(K.avg)}</div>`;
+
+  // ---- system health: only components that actually exist ----
+  const feedOk = running;
+  const chips = [
+    ["Algorithm", running],
+    ["Market data feed", feedOk],
+    ["Scanner", running],
+    ["Kill switch", K.verdict!=="KILL"],
+    ["Dashboard", true],
+    ["Broker", null],   // never connected by design - dry run, no order is ever submitted
+  ];
+  $("#system-health").innerHTML = chips.map(([k,v])=>
+    `<div class="healthchip"><span class="hc-dot ${v===null?'na':(v?'on':'off')}"></span>
+      <span>${k}</span><span class="flat" style="margin-left:auto;font-size:11px">${v===null?'N/A':(v?'OK':'DOWN')}</span></div>`
+  ).join("");
+
+  $("#closed").innerHTML = table([
+    {h:"Ticker", f:c=>`<span class="tick">${c.ticker}</span>`},
+    {h:"Entry",  f:c=>`${c.entry_time} <span class="num flat">${px(c.entry)}</span>`},
+    {h:"Exit",   f:c=>`${c.exit_time} <span class="num flat">${px(c.exit_price)}</span>`, r:1},
+    {h:"Outcome", f:c=>`<span class="num">${c.outcome}</span>`, r:1},
+    {h:"Return", f:c=>sign(c.return_pct,pct), r:1},
+    {h:"P&L", f:c=>sign(c.pnl,money), r:1},
+    {h:"Closed at", f:c=>`<span class="flat">${c.closed_at||"—"}</span>`, r:1},
+  ], L.closed||[]);
+
+  $("#candidates").innerHTML = table([
+    {h:"Ticker", f:c=>`<span class="tick">${c.ticker}</span>`},
+    {h:"Gap",    f:c=>`<span class="num">${c.gap_pct.toFixed(1)}%</span>`, r:1},
+    {h:"Spike",  f:c=>c.signal_multiple?`<span class="num">${c.signal_multiple.toFixed(1)}×</span>`:'<span class="flat">&mdash;</span>', r:1},
+    {h:"Status", f:c=>c.filled?"filled":(c.signalled?"signalled, no fill":"watching"), r:1},
+  ], L.candidates||[]);
+
+  const V = d.views[view], P = V.stats, hist = V.history;
+  const tgtGap = P.target_rate==null ? "" : `backtest expects ${P.backtest_target_rate}%`;
+  $("#pnl-cards").innerHTML =
+    card("Equity", money(P.equity), `from ${money(d.config.account)}`) +
+    card("P&L", `<span class="${cls(P.pnl)}">${money(P.pnl)}</span>`,
+         P.trades?`<span class="${cls(P.pnl_pct)}">${pct(P.pnl_pct)}</span> of account`:"") +
+    card("Trades", P.trades, `${money(d.config.position_size)} each`) +
+    card("Win rate", P.win_rate==null?"—":P.win_rate.toFixed(0)+"%", "") +
+    card("Avg / trade", P.avg_pct==null?"—":`<span class="${cls(P.avg_pct)}">${pct(P.avg_pct)}</span>`, "") +
+    card("Target rate", P.target_rate==null?"—":P.target_rate.toFixed(0)+"%", tgtGap);
+
+  $("#curve").innerHTML = curve(hist);
+  $("#bydays").innerHTML = table([
+    {h:"Date",   f:r=>r.date},
+    {h:"Trades", f:r=>`<span class="num">${r.trades}</span>`, r:1},
+    {h:"Wins",   f:r=>`<span class="num">${r.wins}</span>`, r:1},
+    {h:"P&L",    f:r=>sign(r.pnl,money), r:1},
+    {h:"Equity", f:r=>`<span class="num">${money(r.equity)}</span>`, r:1},
+  ], hist);
+
+  const kColor2 = {KILL:"down", CONFIRM:"up", CONTINUE:"flat", TOO_EARLY:"flat"}[K.verdict];
+  const kLabel2 = {KILL:"KILL", CONFIRM:"CONFIRMED", CONTINUE:"continue",
+                  TOO_EARLY:"too early to call"}[K.verdict];
+  $("#killswitch").innerHTML = `
+    <div style="border:1px solid var(--line);padding:16px 18px;display:flex;align-items:center;gap:22px;flex-wrap:wrap">
+      <div><div style="font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)">Verdict</div>
+        <div class="num ${kColor2}" style="font-size:20px;margin-top:3px">${kLabel2}</div></div>
+      <div><div style="font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)">Real long fills</div>
+        <div class="num" style="font-size:20px;margin-top:3px">${K.n} / ${K.n_min}</div></div>
+      <div><div style="font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)">Running avg</div>
+        <div class="num ${K.avg==null?'flat':cls(K.avg)}" style="font-size:20px;margin-top:3px">${K.avg==null?"&mdash;":pct(K.avg)}</div></div>
+      <div><div style="font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)">Kill / confirm lines</div>
+        <div class="num flat" style="font-size:20px;margin-top:3px">${K.kill_line==null?"&mdash;":pct(K.kill_line)+" / "+pct(K.confirm_line)}</div></div>
+    </div>`;
+
+  const tradesCols = [
+    {h:"Date",   w:"12%", f:t=>t.date},
+    {h:"Ticker", w:"11%", f:t=>`<span class="tick">${t.ticker}</span>`},
+    {h:"Side",   w:"9%",  f:t=>t.side},
+    {h:"In",     w:"11%", r:1, f:t=>`<span class="num flat">${t.entry_price!=null?(+t.entry_price).toFixed(4):"&mdash;"}</span>`},
+    {h:"Out",    w:"11%", r:1, f:t=>`<span class="num flat">${t.exit_price!=null?(+t.exit_price).toFixed(4):"&mdash;"}</span>`},
+    {h:"Exit",   w:"10%", r:1, f:t=>t.outcome},
+    {h:"Source", w:"13%", r:1, f:t=>t.source==="live"?(t.is_real?'<b>live · real</b>':'live'):`<span class="flat">${t.source||"live"}</span>`},
+    {h:"Return", w:"11%", r:1, f:t=>sign(t.return_pct,pct)},
+    {h:"P&L",    w:"12%", r:1, f:t=>sign(t.pnl,money)},
+  ];
+  const tradesSplit = tableSplit(tradesCols, [...d.trades].reverse());
+  // always all of them, labelled by Source - the toggle above only changes what feeds the cards/equity
+  $("#trades-head").innerHTML = tradesSplit.headHtml;
+  $("#trades").innerHTML = tradesSplit.bodyHtml;
+}
+
+function load(){
+  fetch("/api/state").then(r=>r.json()).then(d=>{ window.__lastState=d; render(d); }).catch(e=>{
+    // distinguish "server is gone" from "server answered and we broke on it" -
+    // conflating them once cost a debugging round-trip on a NaN in the JSON
+    $("#statusdot").className="statusdot off";
+    $("#statustext").textContent = "dashboard error: "+e.message;
+    console.error("dashboard load failed", e);
+  });
+}
+
+document.querySelectorAll(".segb[data-view]").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".segb[data-view]").forEach(x=>x.classList.toggle("sel",x===b));
+  view = b.dataset.view; load();
+});
+
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("sel",x===b));
+  $("#tab-live").classList.toggle("hidden", b.dataset.tab!=="live");
+  $("#tab-pnl").classList.toggle("hidden", b.dataset.tab!=="pnl");
+});
+load(); setInterval(load, 5000);
+</script>
+</body>
+</html>

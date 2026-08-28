@@ -1,0 +1,2 @@
+signal_i,signal_time,signal_volume,signal_multiple,entry_i,entry_time,fill,trigger,outcome,exit_price,exit_time,return_pct,minutes_held,ticker,date,gap_pct,open_price
+2,09:32,47345.0,15.048815082588408,33,10:03,1.2074999749660493,1.2074999749660493,EODT,1.184999942779541,14:30,-2.863356741447629,267.0,OGI,2026-08-11,13.333343929715108,1.190000057220459
