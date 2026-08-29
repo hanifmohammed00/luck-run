@@ -2,12 +2,22 @@
 
 Mostly no. This repo is how I found that out.
 
-The idea: cheap stocks ($1 to $3) that gap up at the open on news tend to
-keep drifting up during the day before they fade, and you should be able to
-trade that drift with a target and a stop. I built a backtester, went
-looking for a version of the rule that held up, found one narrow setup that
-looked good on paper, and paper-traded it live for five weeks. Then a stop
-rule I'd committed to in advance shut it down.
+## What this is
+
+lucky-run tests one trading idea from start to finish: when a cheap stock
+gaps up at the open, does it keep running? Inside is a backtester, the one
+strategy that held up under testing, a live paper-trading runner with a
+dashboard, and five weeks of forward results that a pre-set stop rule cut
+short. Every trade is in the repo.
+
+## The thesis
+
+Cheap stocks ($1 to $3) that gap up at the open on news tend to keep
+drifting up during the day before they fade, and you should be able to trade
+that drift with a target and a stop. I built a backtester, went looking for
+a version of the rule that held up, found one narrow setup that looked good
+on paper, and paper-traded it live for five weeks. Then a stop rule I'd
+committed to in advance shut it down.
 
 Most of the dead ends and the reasoning behind each parameter are in the
 code comments. This file is the summary.
